@@ -1,7 +1,7 @@
 use magic_crypt::{new_magic_crypt, MagicCrypt256, MagicCryptError, MagicCryptTrait};
 
 pub fn encrypt(value: impl Into<String>, key: &str) -> String {
-    let mc = get_encrypter(Some(key));
+    let mc = get_encrypter(key);
 
     let value = value.into();
     mc.encrypt_str_to_base64(value)
@@ -12,13 +12,12 @@ pub fn decrypt(
     key: impl Into<String>,
 ) -> Result<std::string::String, MagicCryptError> {
     let key = key.into();
-    let mc = get_encrypter(Some(&key));
+    let mc = get_encrypter(&key);
     let value = value.into();
     mc.decrypt_base64_to_string(value)
 }
 
-fn get_encrypter(key: Option<&str>) -> MagicCrypt256 {
-    let key = key.unwrap_or("DefaultKey");
+fn get_encrypter(key: &str) -> MagicCrypt256 {
     new_magic_crypt!(key, 256)
 }
 
