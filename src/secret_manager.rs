@@ -1,8 +1,8 @@
 use encrypter::{decrypt, encrypt};
+pub use secret_errors::{SecretAddError, SecretGetError, SecretDeleteError};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-pub use secret_errors::{SecretAddError, SecretGetError};
 
 mod encrypter;
 mod secret_errors;
@@ -44,7 +44,7 @@ pub fn get(
             Ok(result) => return Ok(result),
             Err(err) => {
                 let error_message = format!("{}", err);
-                return Err(SecretGetError::DecryptionFailed(error_message))
+                return Err(SecretGetError::DecryptionFailed(error_message));
             }
         }
     }
@@ -81,11 +81,53 @@ pub fn add(
     match writeln!(file, "{{{}}}{}:{}", name.len(), name, value) {
         Err(e) => Err(SecretAddError::SecretWriteFailed(e.to_string())),
         // Err(e) => panic!("Failed to write {}", e),
-        Ok(()) => Ok(())
+        Ok(()) => Ok(()),
     }
 }
 
+pub fn delete(secrets_file: &PathBuf, name: impl Into<String>) -> Result<(), SecretDeleteError> {
+    let file_read = File::options()
+        .append(true)
+        .read(true)
+        .open(secrets_file)
+        .unwrap();
+
+    let name = name.into();
+    let reader = BufReader::new(&file_read);
+    let lines: Vec<String> = reader.lines().map(|l| l.unwrap()).collect();
+    let mut did_delete = false;
+
+    let mut output = match File::create(secrets_file) {
+        Ok(file) => file,
+        Err(err) => return Err(SecretDeleteError::WriteFailed(err.to_string()))
+    };
+
+    for line in lines {
+        let (key, _) = read_line(line.as_str());
+        if key == name {
+            did_delete = true;
+            continue;
+        }
+
+        writeln!(output, "{}", line).expect("Failed to write file");
+    }
+
+    if did_delete {
+        return Ok(())
+    }
+
+    Err(SecretDeleteError::KeyNotFound)
+}
+
 fn read_line(line: &str) -> (&str, &str) {
+    fn get_key_size(line: &str) -> usize {
+        let mut line_chars = line.chars();
+        let idx_end = line_chars.position(|c| c == '}').unwrap();
+
+        let key_size = &line[1..idx_end];
+        key_size.parse().unwrap()
+    }
+
     let key_size = get_key_size(line);
     let mut key_start: usize = 0;
 
@@ -99,14 +141,6 @@ fn read_line(line: &str) -> (&str, &str) {
     let key = &line[key_start..key_end];
     let val = &line[key_end + 1..];
     (key, val)
-}
-
-fn get_key_size(line: &str) -> usize {
-    let mut line_chars = line.chars();
-    let idx_end = line_chars.position(|c| c == '}').unwrap();
-
-    let key_size = &line[1..idx_end];
-    key_size.parse().unwrap()
 }
 
 #[cfg(test)]
@@ -141,14 +175,13 @@ mod tests {
             .unwrap()
             .join("should_add_new_encrypted_text_to_file");
         let mut file = File::create(&file_path).unwrap();
-        let _ = writeln!(file, "{}:{}", "{2}T1", "T2");
-        let _ = writeln!(file, "{}:{}", "{4}Mega", "Password");
+        let _ = writeln!(file, "{{2}}T1:T2");
+        let _ = writeln!(file, "{{4}}Mega:Password");
         let _ = writeln!(
             file,
-            "{}:{}",
-            "{11}BeetleJuice", "BeetleJuice BeetleJuice BeetleJuice"
+            "{{11}}BeetleJuice:BeetleJuice BeetleJuice BeetleJuice"
         );
-        let _ = writeln!(file, "{}:{}", "{2}T1", "T2");
+        let _ = writeln!(file, "{{2}}T1:T2");
 
         let _ = secret_manager::add(&file_path, "NewKey", "NewValue", "Default_Key");
         let last_line = get_last_line(&file_path);
@@ -162,14 +195,13 @@ mod tests {
             .unwrap()
             .join("should_not_allow_duplicates_in_file");
         let mut file = File::create(&file_path).unwrap();
-        let _ = writeln!(file, "{}:{}", "{2}T1", "T2");
-        let _ = writeln!(file, "{}:{}", "{4}Mega", "Password");
+        let _ = writeln!(file, "{{2}}T1:T2");
+        let _ = writeln!(file, "{{4}}Mega:Password");
         let _ = writeln!(
             file,
-            "{}:{}",
-            "{11}BeetleJuice", "BeetleJuice BeetleJuice BeetleJuice"
+            "{{11}}BeetleJuice:BeetleJuice BeetleJuice BeetleJuice"
         );
-        let _ = writeln!(file, "{}:{}", "{2}T1", "T2");
+        let _ = writeln!(file, "{{2}}T1:T2");
 
         let _ = secret_manager::add(&file_path, "Mega", "NewValue", "Default_Key");
         let last_line = get_last_line(&file_path);
@@ -186,7 +218,7 @@ mod tests {
         let default_key = "Default_Key";
 
         let mut file = File::create(&file_path).unwrap();
-        let _ = writeln!(file, "{}:{}", "{4}Mega", "0h/oRBXYpzAbLRqyY3XfVQ==");
+        let _ = writeln!(file, "{{4}}Mega:0h/oRBXYpzAbLRqyY3XfVQ==");
         let result = secret_manager::get(&file_path, "Mega", default_key);
         assert_eq!("Password", result.unwrap())
     }
@@ -199,6 +231,6 @@ mod tests {
             last_line = line.unwrap();
         }
 
-        return last_line;
+        last_line
     }
 }

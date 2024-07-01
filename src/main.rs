@@ -1,6 +1,6 @@
 mod secret_manager;
 use clap::{Parser, Subcommand};
-use secret_manager::{SecretAddError, SecretGetError};
+use secret_manager::{SecretAddError, SecretDeleteError, SecretGetError};
 
 #[derive(Debug, Parser)]
 #[command(name = "secret")]
@@ -11,17 +11,20 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    Add {
+        /// The case insensitive name the secret to get
+        name: String,
+        value: String,
+    },
+    Delete {
+        /// The case insensitive name the secret to get
+        name: String,
+    },
     Get {
         /// The case insensitive name the secret to get
         name: String,
     },
-    Add {
-        name: String,
-        value: String,
-    },
-    Path {
-        
-    }
+    Path {},
 }
 
 fn main() {
@@ -49,10 +52,21 @@ fn main() {
                 Err(SecretAddError::SecretWriteFailed(err)) => {
                     eprintln!("Unable to write to file due to {:?}", err)
                 }
-                _ => eprintln!("Key add failed"),
             }
-        },
-        Commands::Path { } => {
+        }
+        Commands::Delete { name } => {
+            let result = secret_manager::delete(&secret_file_path, &name);
+            match result {
+                Ok(()) => println!("Deleted"),
+                Err(SecretDeleteError::WriteFailed(err)) => {
+                    eprintln!("Unable to write file {}", err)
+                }
+                Err(SecretDeleteError::KeyNotFound) => {
+                    eprintln!("Key {} not found", name)
+                }
+            }
+        }
+        Commands::Path {} => {
             println!("{:?}", secret_file_path);
         }
     }

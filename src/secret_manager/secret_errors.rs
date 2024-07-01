@@ -9,3 +9,8 @@ pub enum SecretGetError {
     KeyNotFound,
     DecryptionFailed(String),
 }
+
+pub enum SecretDeleteError {
+    KeyNotFound,
+    WriteFailed(String),
+}
