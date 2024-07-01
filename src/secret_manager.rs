@@ -1,5 +1,5 @@
 use encrypter::{decrypt, encrypt};
-pub use secret_errors::{SecretAddError, SecretGetError, SecretDeleteError};
+pub use secret_errors::{SecretAddError, SecretDeleteError, SecretGetError};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -25,14 +25,11 @@ pub fn get(
     name: impl Into<String>,
     encryption_key: impl Into<String>,
 ) -> Result<String, SecretGetError> {
-    let file = File::options().read(true).open(secrets_file).unwrap();
-    let reader = BufReader::new(&file);
     let encryption_key = encryption_key.into();
-
     let name = name.into();
+    let lines = get_lines(secrets_file);
 
-    for line in reader.lines() {
-        let line = line.unwrap();
+    for line in lines {
         let (key, value) = read_line(&line);
 
         if key != name {
@@ -53,20 +50,20 @@ pub fn get(
 }
 
 pub fn add(
-    secrets_file: &PathBuf,
+    file: &PathBuf,
     name: impl Into<String>,
     value: impl Into<String>,
-    secret_key: &str,
+    encryption_key: &str,
 ) -> Result<(), SecretAddError> {
     let value = value.into();
     let name = name.into();
 
-    let value = encrypt(value, secret_key);
+    let value = encrypt(value, encryption_key);
 
     let mut file = File::options()
         .append(true)
         .read(true)
-        .open(secrets_file)
+        .open(file)
         .unwrap();
 
     let reader = BufReader::new(&file);
@@ -86,20 +83,14 @@ pub fn add(
 }
 
 pub fn delete(secrets_file: &PathBuf, name: impl Into<String>) -> Result<(), SecretDeleteError> {
-    let file_read = File::options()
-        .append(true)
-        .read(true)
-        .open(secrets_file)
-        .unwrap();
+    let lines = get_lines(secrets_file);
 
     let name = name.into();
-    let reader = BufReader::new(&file_read);
-    let lines: Vec<String> = reader.lines().map(|l| l.unwrap()).collect();
     let mut did_delete = false;
 
     let mut output = match File::create(secrets_file) {
         Ok(file) => file,
-        Err(err) => return Err(SecretDeleteError::WriteFailed(err.to_string()))
+        Err(err) => return Err(SecretDeleteError::WriteFailed(err.to_string())),
     };
 
     for line in lines {
@@ -113,10 +104,16 @@ pub fn delete(secrets_file: &PathBuf, name: impl Into<String>) -> Result<(), Sec
     }
 
     if did_delete {
-        return Ok(())
+        return Ok(());
     }
 
     Err(SecretDeleteError::KeyNotFound)
+}
+
+fn get_lines(file: &PathBuf) -> Vec<String> {
+    let file = File::options().read(true).open(file).unwrap();
+    let reader = BufReader::new(&file);
+    reader.lines().map(|l| l.unwrap()).collect()
 }
 
 fn read_line(line: &str) -> (&str, &str) {
