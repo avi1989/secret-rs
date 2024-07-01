@@ -1,0 +1,9 @@
+[package]
+name = "secret-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.7", features = ["derive"] }
+dirs = "5.0.1"
+magic-crypt = "3.1.13"
