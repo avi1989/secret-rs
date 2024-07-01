@@ -2,7 +2,7 @@ use magic_crypt::{new_magic_crypt, MagicCrypt256, MagicCryptError, MagicCryptTra
 
 pub fn encrypt(value: impl Into<String>, key: &str) -> String {
     let mc = get_encrypter(Some(key));
-    
+
     let value = value.into();
     mc.encrypt_str_to_base64(value)
 }

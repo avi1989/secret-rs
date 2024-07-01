@@ -60,11 +60,7 @@ pub fn add(
 
     let value = encrypt(value, encryption_key);
 
-    let mut file = File::options()
-        .append(true)
-        .read(true)
-        .open(file)
-        .unwrap();
+    let mut file = File::options().append(true).read(true).open(file).unwrap();
 
     let reader = BufReader::new(&file);
     for line in reader.lines() {

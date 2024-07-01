@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub enum SecretAddError{
+pub enum SecretAddError {
     DuplicateKey(String),
     SecretWriteFailed(String),
 }
