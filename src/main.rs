@@ -2,6 +2,8 @@ mod secret_manager;
 use clap::{Parser, Subcommand};
 use secret_manager::{SecretDeleteError, SecretGetError, SecretSetError};
 
+/// A simple utility to store secrets that are meant to be accessed by a
+/// background service.
 #[derive(Debug, Parser)]
 #[command(name = "secret")]
 struct Cli {
@@ -11,19 +13,23 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    Delete {
-        /// The case insensitive name the secret to get
-        name: String,
-    },
+    /// Get a secret by name.
     Get {
-        /// The case insensitive name the secret to get
+        /// The case insensitive name the secret to get.
         name: String,
     },
+    /// Creates or updates a secret by name.
     Set {
+        /// The case insensitive name the secret to delete.
         name: String,
+        /// The secret to be stored.
         value: String,
     },
-    Path {},
+    /// Deletes a secret.
+    Delete {
+        /// The case insensitive name the secret to delete.
+        name: String,
+    },
 }
 
 fn main() {
@@ -62,9 +68,6 @@ fn main() {
                     eprintln!("Key {} not found", name)
                 }
             }
-        }
-        Commands::Path {} => {
-            println!("{:?}", secret_file_path);
         }
     }
 }
