@@ -5,6 +5,7 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 mod encrypter;
+mod key_store;
 mod secret_errors;
 
 pub fn initialize() -> (PathBuf, String) {
@@ -12,16 +13,14 @@ pub fn initialize() -> (PathBuf, String) {
     fs::create_dir_all(&secrets_dir).unwrap();
 
     let secret_file_path = secrets_dir.join("secrets");
-    let secret_key_path = secrets_dir.join("key");
 
     if !secret_file_path.exists() {
         File::create(&secret_file_path).unwrap();
         let string = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
-        let mut secret_key_file = File::create(&secret_key_path).unwrap();
-        writeln!(secret_key_file, "{}", string).unwrap();
+        key_store::store_encryption_key(string);
     }
 
-    let secret_key = fs::read_to_string(&secret_key_path).unwrap();
+    let secret_key = key_store::retrieve_encryption_key().unwrap();
 
     (secret_file_path, secret_key)
 }
