@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub enum SecretAddError {
-    DuplicateKey(String),
+    DuplicateKey(),
     SecretWriteFailed(String),
 }
 
@@ -12,5 +12,9 @@ pub enum SecretGetError {
 
 pub enum SecretDeleteError {
     KeyNotFound,
-    WriteFailed(String),
+    SecretWriteFailed(String),
+}
+
+pub enum SecretSetError {
+    SecretWriteFailed(String),
 }

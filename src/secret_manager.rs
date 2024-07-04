@@ -1,5 +1,5 @@
 use encrypter::{decrypt, encrypt};
-pub use secret_errors::{SecretAddError, SecretDeleteError, SecretGetError};
+pub use secret_errors::{SecretAddError, SecretDeleteError, SecretGetError, SecretSetError};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -8,7 +8,7 @@ mod encrypter;
 mod secret_errors;
 
 pub fn initialize() -> PathBuf {
-    let secrets_dir = dirs::config_dir().unwrap().join("secret");
+    let secrets_dir = dirs::home_dir().unwrap().join(".config").join("secret");
     fs::create_dir_all(&secrets_dir).unwrap();
 
     let secret_file_path = secrets_dir.join("secrets");
@@ -67,7 +67,7 @@ pub fn add(
         let line = line.unwrap();
         let (key, _) = read_line(&line);
         if key == name {
-            return Err(SecretAddError::DuplicateKey(key.to_string()));
+            return Err(SecretAddError::DuplicateKey());
         }
     }
 
@@ -86,7 +86,7 @@ pub fn delete(secrets_file: &PathBuf, name: impl Into<String>) -> Result<(), Sec
 
     let mut output = match File::create(secrets_file) {
         Ok(file) => file,
-        Err(err) => return Err(SecretDeleteError::WriteFailed(err.to_string())),
+        Err(err) => return Err(SecretDeleteError::SecretWriteFailed(err.to_string())),
     };
 
     for line in lines {
@@ -104,6 +104,45 @@ pub fn delete(secrets_file: &PathBuf, name: impl Into<String>) -> Result<(), Sec
     }
 
     Err(SecretDeleteError::KeyNotFound)
+}
+
+fn delete_if_exists(secrets_file: &PathBuf, name: impl Into<String>) -> Result<(), SecretSetError> {
+    let result = delete(secrets_file, name);
+    match result {
+        Ok(()) => Ok(()),
+        Err(SecretDeleteError::KeyNotFound) => Ok(()),
+        Err(SecretDeleteError::SecretWriteFailed(err)) => {
+            Err(SecretSetError::SecretWriteFailed(err))
+        }
+    }
+}
+
+pub fn set(
+    file: &PathBuf,
+    name: impl Into<String>,
+    value: impl Into<String>,
+    encryption_key: &str,
+) -> Result<(), SecretSetError> {
+    let name = name.into();
+    let secret = get(file, &name, encryption_key);
+
+    let add_result: Result<(), SecretAddError> = match secret {
+        Ok(_) => {
+            let _ = delete_if_exists(file, &name);
+            add(file, name, value, encryption_key)
+        }
+        Err(SecretGetError::KeyNotFound) => add(file, name, value, encryption_key),
+        Err(SecretGetError::DecryptionFailed(err)) => Err(SecretAddError::SecretWriteFailed(err)),
+    };
+
+    match add_result {
+        Ok(()) => Ok(()),
+        Err(SecretAddError::DuplicateKey()) => {
+            // This can't happen
+            Ok(())
+        }
+        Err(SecretAddError::SecretWriteFailed(err)) => Err(SecretSetError::SecretWriteFailed(err)),
+    }
 }
 
 fn get_lines(file: &PathBuf) -> Vec<String> {
