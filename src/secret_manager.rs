@@ -1,23 +1,29 @@
 use encrypter::{decrypt, encrypt};
+use rand::distributions::{Alphanumeric, DistString};
 pub use secret_errors::{SecretAddError, SecretDeleteError, SecretGetError, SecretSetError};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-
 mod encrypter;
 mod secret_errors;
 
-pub fn initialize() -> PathBuf {
+pub fn initialize() -> (PathBuf, String) {
     let secrets_dir = dirs::home_dir().unwrap().join(".config").join("secret");
     fs::create_dir_all(&secrets_dir).unwrap();
 
     let secret_file_path = secrets_dir.join("secrets");
+    let secret_key_path = secrets_dir.join("key");
 
     if !secret_file_path.exists() {
         File::create(&secret_file_path).unwrap();
+        let string = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let mut secret_key_file = File::create(&secret_key_path).unwrap();
+        writeln!(secret_key_file, "{}", string).unwrap();
     }
 
-    secret_file_path
+    let secret_key = fs::read_to_string(&secret_key_path).unwrap();
+
+    (secret_file_path, secret_key)
 }
 
 pub fn get(
@@ -53,7 +59,7 @@ pub fn add(
     file: &PathBuf,
     name: impl Into<String>,
     value: impl Into<String>,
-    encryption_key: &str,
+    encryption_key: impl Into<String>,
 ) -> Result<(), SecretAddError> {
     let value = value.into();
     let name = name.into();
@@ -121,10 +127,11 @@ pub fn set(
     file: &PathBuf,
     name: impl Into<String>,
     value: impl Into<String>,
-    encryption_key: &str,
+    encryption_key: impl Into<String>,
 ) -> Result<(), SecretSetError> {
     let name = name.into();
-    let secret = get(file, &name, encryption_key);
+    let encryption_key = encryption_key.into();
+    let secret = get(file, &name, &encryption_key);
 
     let add_result: Result<(), SecretAddError> = match secret {
         Ok(_) => {

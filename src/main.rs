@@ -27,8 +27,7 @@ enum Commands {
 }
 
 fn main() {
-    let secret_file_path = secret_manager::initialize();
-    let secret_key = "This is a test";
+    let (secret_file_path, secret_key) = secret_manager::initialize();
 
     let args = Cli::parse();
 

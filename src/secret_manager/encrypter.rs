@@ -1,6 +1,6 @@
 use magic_crypt::{new_magic_crypt, MagicCrypt256, MagicCryptError, MagicCryptTrait};
 
-pub fn encrypt(value: impl Into<String>, key: &str) -> String {
+pub fn encrypt(value: impl Into<String>, key: impl Into<String>,) -> String {
     let mc = get_encrypter(key);
 
     let value = value.into();
@@ -17,7 +17,8 @@ pub fn decrypt(
     mc.decrypt_base64_to_string(value)
 }
 
-fn get_encrypter(key: &str) -> MagicCrypt256 {
+fn get_encrypter(key: impl Into<String>,) -> MagicCrypt256 {
+    let key = key.into();
     new_magic_crypt!(key, 256)
 }
 
